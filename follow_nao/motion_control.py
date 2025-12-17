@@ -168,7 +168,8 @@ class MotionControl(Node):
             return
         
         if self.stop:
-            self.get_logger().info('Robot stopped due to touch sensor')
+            self.get_logger().debug('Robot stopped due to touch sensor')
+            self.cmd_pub.publish(Twist())  # Publish zero velocities
             return
         
         # Calculate angle relative to image center (positive left, negative right)
@@ -229,7 +230,7 @@ class MotionControl(Node):
             vel.linear.x = vel_lin
             vel.angular.z = vel_rot
 
-            # self.cmd_pub.publish(vel)
+            self.cmd_pub.publish(vel)
 
         except Exception as e:
             self.get_logger().warn(f'Error in TF {source_frame} -> {target_frame}: {str(e)}')
