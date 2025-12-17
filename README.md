@@ -1,19 +1,21 @@
 # follow_nao
 
-A ROS 2 package for object tracking and following behavior on the NAO humanoid robot. This package integrates YOLO-based object detection with robot motion control, utilizing NAO's sonar sensors for obstacle avoidance.
+A ROS 2 package for object tracking and following behavior on the NAO humanoid robot. This package integrates YOLO-based object detection with robot motion control using **BehaviorTree.CPP**, utilizing NAO's sonar sensors for obstacle avoidance.
 
 ## Overview
 
-The `follow_nao` package enables the NAO robot to detect and follow objects (e.g., persons) while autonomously avoiding obstacles using its built-in sonar sensors. The package provides both 2D (bounding box-based) and 3D (depth-aware) tracking modes, with motion control nodes that generate appropriate velocity commands to follow a target while maintaining safe distances from obstacles.
+The `follow_nao` package enables the NAO robot to detect and follow objects (e.g., persons) while autonomously avoiding obstacles using its built-in sonar sensors. The package uses **BehaviorTree.CPP** to implement intelligent search and follow behaviors, providing both 2D (bounding box-based) and 3D (depth-aware) tracking modes.
 
 ### Key Features
 
+- **BehaviorTree.CPP Integration**: Modular behavior tree architecture for search and follow behaviors
+- **Autonomous Search**: Robot automatically spins to search for targets when none are detected
 - **Object Detection Integration**: Works with YOLO object detectors via the `yolo_ros` package
 - **2D and 3D Tracking**: Support for both monocular (2D) and depth-based (3D) tracking
 - **Obstacle Avoidance**: Leverages NAO's left and right sonar sensors to detect and avoid obstacles
 - **TF Broadcasting**: Publishes target positions as TF frames for easy integration with navigation stacks
 - **Touch Sensor Control**: Start/stop following behavior by touching NAO's head sensors
-- **Configurable Parameters**: Customizable speeds, distances, target classes, and reference frames
+- **XML-Configurable**: Behavior trees can be modified via XML without recompiling
 
 ### Current Limitations
 
@@ -21,7 +23,26 @@ The `follow_nao` package enables the NAO robot to detect and follow objects (e.g
 
 ## Architecture
 
-The package consists of several nodes that work together:
+The package now uses **BehaviorTree.CPP** for intelligent behavior management:
+
+### BehaviorTree Architecture
+
+```
+Root: ReactiveFallback
+├── ReactiveSequence (Follow if detected)
+│   ├── IsTargetDetected? (Condition)
+│   └── Follow (Action with obstacle avoidance)
+└── SpinSearch (Action - returns RUNNING until target found)
+```
+
+**Behavior Logic:**
+1. **IsTargetDetected**: Checks if target TF frame exists
+2. If **TRUE** → **Follow**: Robot follows target with integrated obstacle avoidance
+3. If **FALSE** → **SpinSearch**: Robot spins in place searching for target (returns RUNNING continuously)
+
+### System Architecture
+
+The complete system workflow:
 
 ```
 ┌──────────────┐
@@ -39,17 +60,83 @@ The package consists of several nodes that work together:
 └───────────────────┘
        │
        v
-┌──────────────────┐       ┌──────────────┐
-│ Motion Control   │ <──── │ Sonar Sensors│
-└──────────────────┘       └──────────────┘
-       │                          │
-       v                          │
-   Twist (vel)  <─────────────────┘
+┌──────────────────────┐
+│  BehaviorTree Node   │
+│  ┌────────────────┐  │
+│  │ IsTargetDetected│ │ ──> Checks TF
+│  └────────────────┘  │
+│  ┌────────────────┐  │       ┌──────────────┐
+│  │ SpinSearch     │ │ <──── │ Sonar Sensors│
+│  └────────────────┘  │       └──────────────┘
+│  ┌────────────────┐  │              │
+│  │ Follow         │ │ <─────────────┘
+│  └────────────────┘  │
+└──────────────────────┘
+       │
+       v
+   Twist (cmd_vel)
 ```
 
 ## Nodes
 
-### 1. yolo_to_standard
+### BehaviorTree Nodes (C++)
+
+#### bt_follow_node
+
+Main behavior tree executor that loads and runs the XML-defined behavior tree.
+
+**Parameters:**
+- `bt_xml` (string, **required**) - Path to the behavior tree XML file
+- `tick_rate` (double, default: `10.0`) - Behavior tree tick rate in Hz
+
+**Behavior Tree Components:**
+
+##### IsTargetDetected (Condition)
+Checks if the target TF frame is available.
+
+**Ports:**
+- `target_frame` (string, default: `"target"`) - Target TF frame to check
+- `base_frame` (string, default: `"base_link"`) - Base TF frame
+- `timeout` (double, default: `0.5`) - Time to wait for transform (seconds)
+
+**Returns:**
+- `SUCCESS` if target TF is available
+- `FAILURE` if target TF is not available
+
+##### SpinSearch (Action)
+Rotates the robot in place while searching for the target. Returns RUNNING until target is detected.
+
+**Ports:**
+- `target_frame` (string, default: `"target"`) - Target TF frame to search for
+- `base_frame` (string, default: `"base_link"`) - Base TF frame
+- `angular_speed` (double, default: `0.5`) - Rotation speed (rad/s)
+- `cmd_vel_topic` (string, default: `"/cmd_vel"`) - Velocity command topic
+
+**Returns:**
+- `RUNNING` while searching (spinning)
+- `SUCCESS` when target is detected
+
+##### Follow (Action)
+Follows the target TF frame with integrated obstacle avoidance using sonar sensors.
+
+**Ports:**
+- `target_frame` (string, default: `"target"`) - Target TF frame to follow
+- `base_frame` (string, default: `"base_link"`) - Base TF frame
+- `min_distance` (double, default: `1.0`) - Desired distance to target (m)
+- `avoidance_distance` (double, default: `0.5`) - Minimum distance to obstacles (m)
+- `max_linear_speed` (double, default: `0.5`) - Maximum forward speed (m/s)
+- `max_angular_speed` (double, default: `1.0`) - Maximum rotation speed (rad/s)
+- `cmd_vel_topic` (string, default: `"/cmd_vel"`) - Velocity command topic
+- `sonar_topic` (string, default: `"/sensors/sonar"`) - Sonar sensor topic
+- `touch_topic` (string, default: `"/sensors/touch"`) - Touch sensor topic
+
+**Returns:**
+- `RUNNING` while following
+- `FAILURE` if target is lost
+
+### Python Nodes (Legacy)
+
+#### 1. yolo_to_standard
 
 Converts YOLO's custom `DetectionArray` messages to standard ROS `Detection2DArray` and `Detection3DArray` messages.
 

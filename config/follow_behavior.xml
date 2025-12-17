@@ -1,0 +1,52 @@
+<?xml version="1.0"?>
+<root BTCPP_format="4">
+  
+  <!-- 
+    Behavior Tree for NAO Robot Following
+    
+    Strategy: 
+    - Use ReactiveFallback to continuously check if target is detected
+    - If target detected: Follow it while avoiding obstacles
+    - If target not detected: Spin to search for it
+  -->
+  
+  <BehaviorTree ID="FollowBehavior">
+    
+    <ReactiveFallback name="MainBehavior">
+      
+      <!-- Branch 1: If target is detected, follow it -->
+      <ReactiveSequence name="FollowIfDetected">
+        
+        <IsTargetDetected 
+          name="CheckTarget"
+          target_frame="target"
+          base_frame="base_link"
+          timeout="0.5"/>
+        
+        <Follow 
+          name="FollowTarget"
+          target_frame="target"
+          base_frame="base_link"
+          min_distance="1.0"
+          avoidance_distance="0.5"
+          max_linear_speed="0.5"
+          max_angular_speed="1.0"
+          cmd_vel_topic="/cmd_vel"
+          sonar_topic="/sensors/sonar"
+          touch_topic="/sensors/touch"/>
+        
+      </ReactiveSequence>
+      
+      <!-- Branch 2: If target not detected, spin to search -->
+      <SpinSearch 
+        name="SearchForTarget"
+        target_frame="target"
+        base_frame="base_link"
+        angular_speed="0.5"
+        cmd_vel_topic="/cmd_vel"/>
+      
+    </ReactiveFallback>
+    
+  </BehaviorTree>
+  
+</root>
