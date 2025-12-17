@@ -86,6 +86,7 @@ class MotionControl(Node):
         self.detection = None
         self.configured = False
         self.stop = False
+        self.danger = False
 
     def camera_info_callback(self, msg: CameraInfo):
         # The intrinsic matrix K is a 9-element array (row-major order)
@@ -132,6 +133,8 @@ class MotionControl(Node):
         vel_rot_avoid_left = 0.0
         vel_rot_avoid_right = 0.0
         vel_rot = 0.0
+
+        self.danger = False
         
         if dis_left < self.avoidance_distance: # Obstacle on the left
             self.get_logger().debug(f'Obstacle detected on the LEFT at distance {dis_left:.2f} m')
@@ -148,11 +151,13 @@ class MotionControl(Node):
             vel_rot = vel_rot_avoid_right
         
         if avoid_left and avoid_right: # Obstacles on both sides
+            self.danger = True
+            self.get_logger().info('DANGER: obstacles detected on both sides, stopping robot') # Temporary till depth info is used
             if dis_left < dis_right:
                 vel_rot = vel_rot_avoid_left
             elif dis_right < dis_left:
                 vel_rot = vel_rot_avoid_right
-            else:
+            else: # Equal distance, stop rotation
                 vel_rot = 0.0
 
         self.vel_rot = vel_rot
@@ -169,6 +174,11 @@ class MotionControl(Node):
         
         if self.stop:
             self.get_logger().debug('Robot stopped due to touch sensor')
+            self.cmd_pub.publish(Twist())  # Publish zero velocities
+            return
+        
+        if self.danger:
+            self.get_logger().debug('Robot stopped due to danger detected by sonar')
             self.cmd_pub.publish(Twist())  # Publish zero velocities
             return
         
