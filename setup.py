@@ -12,7 +12,8 @@ setup(
         ('share/' + package_name, ['package.xml']),
         ('share/' + package_name + '/launch', ['launch/2d_follow_nao.launch.py']),
         ('share/' + package_name + '/launch', ['launch/3d_follow_nao.launch.py']),
-        ('share/' + package_name + '/launch', ['launch/track.launch.py']),
+        ('share/' + package_name + '/launch', ['launch/3d_track.launch.py']),
+        ('share/' + package_name + '/launch', ['launch/2d_track.launch.py']),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
@@ -24,9 +25,10 @@ setup(
     entry_points={
         'console_scripts': [
             'motion_control_3d = follow_nao.motion_control_3d:main',
-            'motion_control_2d = follow_nao.motion_control:main',
+            'motion_control_2d = follow_nao.motion_control_2d:main',
             'yolo_to_standard = follow_nao.yolo_to_standard:main',
-            'entity_tracker = follow_nao.entity_tracker:main',
+            'entity_tracker_3d = follow_nao.entity_tracker_3d:main',
+            'entity_tracker_fake_3d = follow_nao.entity_tracker_fake_3d:main',
         ],
     },
 )

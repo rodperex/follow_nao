@@ -26,7 +26,7 @@ class EntityTracker(Node):
         super().__init__('entity_tracker_node')
 
         self.declare_parameter('target_class', 'person')
-        self.declare_parameter('source_frame', 'odom')
+        self.declare_parameter('source_frame', 'base_link')
         self.declare_parameter('target_frame', 'target')
         
         self.target_class = self.get_parameter('target_class').value

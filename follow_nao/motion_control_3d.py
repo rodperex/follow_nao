@@ -13,7 +13,7 @@
 import rclpy
 import math
 from rclpy.node import Node
-from nao_lola_sensor.msg import Sonar
+from nao_lola_sensor.msg import Sonar, Touch
 from geometry_msgs.msg import Twist
 from tf2_ros import Buffer, TransformListener
 # from .pid_controller import PIDController
@@ -43,7 +43,6 @@ class MotionControl3D(Node):
         # self.vlin_pid = PIDController(0.0, 1.0, 0.0, 0.7)
         # self.vrot_pid = PIDController(0.0, 1.0, 0.3, 1.0)
 
-        # Sonar subscriber
         self.sonar_sub = self.create_subscription(
             Sonar,
             'sonar',
@@ -51,7 +50,13 @@ class MotionControl3D(Node):
             10
         )
 
-        # Velocity publisher
+        self.touch_sub = self.create_subscription(
+            Touch,
+            'touch',
+            self.touch_callback,
+            10
+        )
+
         self.cmd_pub = self.create_publisher(Twist, 'vel', 10)
 
         self.tf_buffer = Buffer()
@@ -60,6 +65,18 @@ class MotionControl3D(Node):
         self.timer = self.create_timer(0.1, self.control_cycle)
 
         self.vel_rot = 0.0
+
+        self.stop = False
+
+
+    def touch_callback(self, msg: Touch):
+        if msg.head_front or msg.head_middle or msg.head_rear:
+            if not self.stop:   
+                self.get_logger().info('Touch detected on head, stopping robot')
+                self.stop = True
+            else:
+                self.get_logger().info('Touch detected on head, resuming robot')
+                self.stop = False
 
     def sonar_callback(self, msg: Sonar):
 
@@ -97,6 +114,12 @@ class MotionControl3D(Node):
         if not self.tf_buffer.can_transform(self.base_frame, self.target_frame, rclpy.time.Time()):
             self.get_logger().warn('Waiting for transform base_footprint -> target')
             return
+        
+        if self.stop:
+            self.get_logger().debug('Robot stopped due to touch sensor')
+            self.cmd_pub.publish(Twist())  # Publish zero velocities
+            return
+
         try:
             tf = self.tf_buffer.lookup_transform(
                 self.base_frame, self.target_frame, rclpy.time.Time())

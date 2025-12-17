@@ -11,16 +11,17 @@ def generate_launch_description():
   
         Node(
             package='follow_nao',
-            executable='entity_tracker',
+            executable='entity_tracker_fake_3d',
             name='entity_tracker_node',
             output='screen',
             parameters=[{
-            'target_class': 'person',
+            'target_class': 'bed',
             'source_frame': 'base_link',
             'target_frame': 'target'
             }],
             remappings=[
-            ('/input_detection_3d', '/detections_3d')
+            ('/input_detection_2d', '/detections_2d'),
+            ('/camera_info', '/camera_rgb_info')
             ]
         ),
 
