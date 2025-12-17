@@ -148,7 +148,7 @@ Converts YOLO's custom `DetectionArray` messages to standard ROS `Detection2DArr
 - `output_detection_2d` (`vision_msgs/Detection2DArray`) - Standard 2D detections
 - `output_detection_3d` (`vision_msgs/Detection3DArray`) - Standard 3D detections
 
-### 2. entity_tracker_fake_3d
+#### 2. entity_tracker_fake_3d
 
 Tracks a target object from 2D detections and publishes its position as a TF frame. Uses camera intrinsics to compute the angular direction and places the target at a fixed 1m distance.
 
@@ -165,7 +165,7 @@ Tracks a target object from 2D detections and publishes its position as a TF fra
 - `target_frame` (string, default: `"target"`) - Child frame name for the TF
 - `optical_frame` (string, default: `"CameraTop_optical_frame"`) - Camera optical frame
 
-### 3. entity_tracker_3d
+#### 3. entity_tracker_3d
 
 Tracks a target object from 3D detections (with real depth information) and publishes its position as a TF frame.
 
@@ -180,7 +180,7 @@ Tracks a target object from 3D detections (with real depth information) and publ
 - `source_frame` (string, default: `"base_link"`)
 - `target_frame` (string, default: `"target"`)
 
-### 4. motion_control_2d
+#### 4. motion_control_2d (Legacy)
 
 Generates velocity commands to follow a detected object while avoiding obstacles using sonar sensors. Works directly with 2D detections.
 
@@ -201,7 +201,7 @@ Generates velocity commands to follow a detected object while avoiding obstacles
 - `base_frame` (string, default: `"base_footprint"`) - Robot's base frame
 - `optical_frame` (string, default: `"CameraTop_optical_frame"`) - Camera optical frame
 
-### 5. motion_control_3d
+#### 5. motion_control_3d (Legacy)
 
 Generates velocity commands to follow a target TF frame while avoiding obstacles using sonar sensors.
 
@@ -226,10 +226,11 @@ Generates velocity commands to follow a target TF frame while avoiding obstacles
 ### Prerequisites
 
 This package requires the following dependencies:
-- ROS 2 (tested on Humble)
+- ROS 2 Jazzy (or Humble)
+- **BehaviorTree.CPP** v4.x
 - `yolo_ros` package ([mgonzs13/yolo_ros](https://github.com/mgonzs13/yolo_ros))
 - `nao_lola_sensor_msgs` package (NAO robot interfaces)
-- Standard ROS 2 packages: `rclpy`, `geometry_msgs`, `vision_msgs`, `tf2_ros`
+- Standard ROS 2 packages: `rclcpp`, `rclpy`, `geometry_msgs`, `vision_msgs`, `tf2_ros`
 
 ### Build
 
@@ -247,6 +248,7 @@ rosdep install --from-paths src --ignore-src -r -y
 
 3. Build the package:
 ```bash
+source /opt/ros/jazzy/setup.bash  # or humble
 colcon build --packages-select follow_nao
 source install/setup.bash
 ```
@@ -255,7 +257,28 @@ source install/setup.bash
 
 ### Launch Files
 
-#### 1. 2D Follow (Direct Detection Following)
+#### **Recommended: BehaviorTree Follow (Complete System)**
+
+Launch the complete system with BehaviorTree.CPP for autonomous search and follow:
+
+```bash
+ros2 launch follow_nao bt_follow_nao.launch.py
+```
+
+This launches:
+- YOLO detector (`yolo_bringup`)
+- `yolo_to_standard` converter
+- `entity_tracker_fake_3d` TF publisher
+- `bt_follow_node` BehaviorTree executor
+
+**Behavior:**
+- Robot automatically **spins to search** for target when none is detected
+- When target is found, robot **follows it** with obstacle avoidance
+- Touch head sensors to pause/resume
+
+#### Legacy Launch Files
+
+##### 1. 2D Follow (Direct Detection Following)
 
 Launch the 2D following behavior without depth information:
 
@@ -273,7 +296,7 @@ Default remappings:
 - `/input_detection_2d` → `/detections_2d`
 - `/vel` → `/target`
 
-#### 2. 3D Follow (TF-based Following)
+##### 2. 3D Follow (TF-based Following)
 
 Launch the 3D following behavior with TF frame tracking:
 
@@ -288,7 +311,7 @@ Default remappings:
 - `/sonar` → `/sensors/sonar`
 - `/vel` → `/target`
 
-#### 3. 2D Track (Detection + TF Publishing)
+##### 3. 2D Track (Detection + TF Publishing)
 
 Launch YOLO detection with fake 3D tracking (1m fixed distance):
 
@@ -301,7 +324,7 @@ This launches:
 - `yolo_to_standard` converter
 - `entity_tracker_fake_3d` TF publisher
 
-#### 4. 3D Track (YOLO + Depth)
+##### 4. 3D Track (YOLO + Depth)
 
 Launch YOLO detection with 3D depth information:
 
@@ -330,14 +353,14 @@ Or use a custom launch file combining both.
 
 ## Obstacle Avoidance
 
-The motion control nodes use NAO's sonar sensors to detect and avoid obstacles:
+The **Follow** action in the behavior tree integrates NAO's sonar sensors to detect and avoid obstacles:
 
 - **Left Sonar**: Detects obstacles on the left; robot turns right to avoid
 - **Right Sonar**: Detects obstacles on the right; robot turns left to avoid
 - **Both Sonars**: When both detect obstacles, the robot turns away from the closer one
 - **Avoidance Distance**: Configurable via the `avoidance_distance` parameter (default: 0.5m)
 
-The avoidance behavior is combined with the target-following behavior, ensuring the robot doesn't collide with obstacles while pursuing its target.
+The avoidance behavior is seamlessly integrated into the Follow action, ensuring the robot doesn't collide with obstacles while pursuing its target.
 
 ## Touch Sensor Control
 
@@ -345,44 +368,50 @@ Touch any of NAO's head sensors (front, middle, or rear) to toggle between:
 - **Active**: Robot follows the target and avoids obstacles
 - **Stopped**: Robot stops all motion (publishes zero velocities)
 
+This works within the Follow action node.
+
 ## Configuration
+
+### Customizing the Behavior Tree
+
+The behavior tree is defined in XML and can be modified without recompiling:
+
+**File:** `config/follow_behavior.xml`
+
+You can customize:
+- Tree structure (add decorators, conditions, etc.)
+- Node parameters (speeds, distances, frame names)
+- Control flow (sequence, fallback, parallel)
+
+Example - Change search speed:
+```xml
+<SpinSearch 
+  name="SearchForTarget"
+  target_frame="target"
+  base_frame="base_link"
+  angular_speed="0.8"
+  cmd_vel_topic="/cmd_vel"/>
+```
 
 ### Changing Target Class
 
-To follow a different object class (e.g., "cup", "chair"):
-
-```bash
-ros2 run follow_nao motion_control_2d --ros-args -p target_class:=cup
-```
-
-Or modify the launch file parameters:
+Modify in the launch file to track different objects:
 
 ```python
 parameters=[{
-    'target_class': 'cup',
+    'target_class': 'cup',  # or 'chair', 'bottle', etc.
     # ... other parameters
 }]
 ```
 
-### Adjusting Speeds
+### Using a Custom Behavior Tree
 
-To change maximum speeds:
-
-```bash
-ros2 run follow_nao motion_control_2d --ros-args \
-    -p max_linear_speed:=0.3 \
-    -p max_angular_speed:=0.5
-```
-
-### Custom Frames
-
-If using different robot or camera frames:
+Create your own XML file and specify it:
 
 ```bash
-ros2 run follow_nao entity_tracker_fake_3d --ros-args \
-    -p source_frame:=base_footprint \
-    -p target_frame:=person_target \
-    -p optical_frame:=camera_optical
+ros2 run follow_nao bt_follow_node --ros-args \
+    -p bt_xml:=/path/to/your_custom_tree.xml \
+    -p tick_rate:=20.0
 ```
 
 ## Visualization
