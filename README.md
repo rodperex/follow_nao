@@ -1,19 +1,21 @@
 # follow_nao
 
-A ROS 2 package for object tracking and following behavior on the NAO humanoid robot. This package integrates YOLO-based object detection with robot motion control, utilizing NAO's sonar sensors for obstacle avoidance.
+A ROS 2 package for object tracking and following behavior on the NAO humanoid robot. This package integrates YOLO-based object detection with robot motion control using **BehaviorTree.CPP**, utilizing NAO's sonar sensors for obstacle avoidance.
 
 ## Overview
 
-The `follow_nao` package enables the NAO robot to detect and follow objects (e.g., persons) while autonomously avoiding obstacles using its built-in sonar sensors. The package provides both 2D (bounding box-based) and 3D (depth-aware) tracking modes, with motion control nodes that generate appropriate velocity commands to follow a target while maintaining safe distances from obstacles.
+The `follow_nao` package enables the NAO robot to detect and follow objects (e.g., persons) while autonomously avoiding obstacles using its built-in sonar sensors. The package uses **BehaviorTree.CPP** to implement intelligent search and follow behaviors, providing both 2D (bounding box-based) and 3D (depth-aware) tracking modes.
 
 ### Key Features
 
+- **BehaviorTree.CPP Integration**: Modular behavior tree architecture for search and follow behaviors
+- **Autonomous Search**: Robot automatically spins to search for targets when none are detected
 - **Object Detection Integration**: Works with YOLO object detectors via the `yolo_ros` package
 - **2D and 3D Tracking**: Support for both monocular (2D) and depth-based (3D) tracking
 - **Obstacle Avoidance**: Leverages NAO's left and right sonar sensors to detect and avoid obstacles
 - **TF Broadcasting**: Publishes target positions as TF frames for easy integration with navigation stacks
 - **Touch Sensor Control**: Start/stop following behavior by touching NAO's head sensors
-- **Configurable Parameters**: Customizable speeds, distances, target classes, and reference frames
+- **XML-Configurable**: Behavior trees can be modified via XML without recompiling
 
 ### Current Limitations
 
